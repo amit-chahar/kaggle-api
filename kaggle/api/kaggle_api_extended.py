@@ -198,7 +198,6 @@ class KaggleApi(KaggleApi):
 
         configuration.username = config_data[self.CONFIG_NAME_USER]
         configuration.password = config_data[self.CONFIG_NAME_KEY]
-
         # Proxy
 
         if self.CONFIG_NAME_PROXY in config_data:
@@ -2580,6 +2579,70 @@ class KaggleApi(KaggleApi):
 
         return as_metadata
 
+    def get_team_ids_from_private_leaderboard(self, competition):
+        query_params = []
+        query_params.append(('includeBeforeUser', "true"))
+        query_params.append(('includeAfterUser', "true"))
+        query_params.append(('type', "private"))
+
+        header_params = {}
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])
+
+        # Authentication setting
+        auth_settings = ['basicAuth']
+
+        path_params = {}
+
+        leaderboard = self.process_response(
+            self.api_client.call_api(
+                '/c/' + competition + '/leaderboard.json', 'GET',
+                path_params,
+                query_params,
+                header_params,
+                response_type='Result',
+                auth_settings=auth_settings
+            )
+        )
+
+        submissions = leaderboard['beforeUser'] + leaderboard['afterUser']
+        return [item['teamId'] for item in submissions]
+
+    def get_competition_submissions_scores(self, competition, path, out_filename):
+
+        team_ids = self.get_team_ids_from_private_leaderboard(competition)
+
+        path_params = {}
+
+        header_params = {}
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])
+
+        # Authentication setting
+        auth_settings = ['basicAuth']
+
+        submission_data = {}
+
+        for team_id in tqdm(team_ids):
+            query_params = []
+            query_params.append(('teamId', team_id))
+
+            response = self.process_response(
+                self.api_client.call_api(
+                    '/c/' + competition + '/team-submissions.json', 'GET',
+                    path_params,
+                    query_params,
+                    header_params,
+                    response_type='Result',
+                    auth_settings=auth_settings
+                )
+            )
+
+            submission_data[team_id] = response
+
+        return submission_data
 
 class TqdmBufferedReader(io.BufferedReader):
     def __init__(self, raw, progress_bar):
